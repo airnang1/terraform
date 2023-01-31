@@ -4,13 +4,15 @@ provider "aws" {
 
 # Now is EC2
 resource "aws_instance" "jenkins" {
-  ami           = "ami-0753e0e42b20e96e3"
-  instance_type = "t2.micro"
+  # ami           = "ami-0753e0e42b20e96e3"
+  ami           = var.ec2_ami
+  instance_type = var.instance_type
+  count         = var.instance_count
   # add SG for EC2
   security_groups = [aws_security_group.SG-airnang.name]
   # add public key for EC2
   #   key_name = aws_key_pair.pubkey.key_name
-  key_name = "EC2_airnang2"
+  key_name = "EC2_airnang"
   connection {
     type = "ssh"
     host = self.public_ip
@@ -22,8 +24,54 @@ resource "aws_instance" "jenkins" {
   }
 
   tags = {
-    Name = "t2-jenkins1"
+    Name = "t2-jenkins-${count.index + 1}"
   }
+}
+
+# resource "aws_eip" "eip" {
+
+#   for_each = toset(var.ec2_name)
+#   instance = aws_instance.jenkins
+# }
+
+
+# variable "ec2_name" {
+#   type    = list(string)
+#   default = ["one", "three", "whatever"]
+# }
+
+resource "aws_eip" "eip_manager" {
+  instance = element(aws_instance.jenkins.*.id, count.index)
+  count    = var.instance_count
+  vpc      = true
+
+  tags = {
+    Name = "eip-jenkins-${count.index + 1}"
+  }
+}
+
+
+variable "instance_type" {
+  type    = string
+  default = "t2.micro"
+}
+
+variable "ec2_ami" {
+  # type = map(any)
+  type = string
+  # default = {
+  default = "ami-0753e0e42b20e96e3"
+  # us-west-1      = "ami-006fce872b320923e"
+  # }
+}
+
+
+# variable "region" {
+#   default = ap-southeast-1
+# }
+
+variable "instance_count" {
+  type = number
 }
 
 # Security Group
@@ -60,14 +108,14 @@ resource "aws_security_group" "SG-airnang" {
 # }
 
 # EIP
-resource "aws_eip" "elasticip" {
-  instance = aws_instance.jenkins.id
-}
+# resource "aws_eip" "elasticip" {
+#   instance = aws_instance.jenkins.id
+# }
 
-# ouput EIP
-output "eip" {
-  value = aws_eip.elasticip.public_ip
-}
+# # ouput EIP
+# output "eip" {
+#   value = aws_eip.elasticip.public_ip
+# }
 
 ################################
 # create public key 
